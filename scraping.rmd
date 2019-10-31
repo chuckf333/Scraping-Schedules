@@ -1,0 +1,142 @@
+---
+title: "R Notebook"
+author: "Charles Franklin"
+output:
+  html_document:
+    df_print: paged
+---
+
+##### The purpose of this exercise is to test out some basic website scraping that we can do within R.
+##### First, we need to start by loading all of the libraries that we need to use.  Tidyr is where we get our tools to clean up the data, and Rvest is where we get the stuff we need to work with the html data on the websites.
+
+```{r message=FALSE}
+include <- function(library_name){
+  if( !(library_name %in% installed.packages()) )
+    install.packages(library_name) 
+  library(library_name, character.only=TRUE)
+}
+include("rvest")
+include("tidyr")
+```
+
+##### Now we will select a url to try pullin in data from.  We're going to use a page off of the CSU Chico website that lists all of the available classes and their information for the spring 2019 semester.
+
+```{r}
+my_url <- "http://ems.csuchico.edu/APSS/schedule/spr2019/CSCI.shtml"
+spr2019page <- read_html(my_url)
+```
+
+##### The next functions used will use specific keywords as arguments/input and will parse the HTML on the page to find the sections identified by those keywords, then extract the respective data into lists, while also assigning the necessary data types as needed.  Those lists of data will then be put together into a single table once they're all finished being collected.
+##### The "head" function is used afterwards to show an example of what that table looks like.
+
+##### The variables that we're going to pull out here are: class registration number, class subject, class ID number, section of the particular class, title of the class, instructor of the class, and the amount of people enrolled in the class.
+##### The class registration number could be stored as anything really, as it is a unique identifier for each specific class.  For the purposes of this, we will just store it as an integer.
+##### The class subject will be stored as a factor so that they can be grouped together if needed, since there are often multiple offerings for each class.
+##### The class ID number will be stored as a factor for the same reason as the subject.
+##### The class section will be stored as an integer because it doesn't really serve a functional purpose as a factor, but it can be used to differentiate each offering of a particular class from each other.
+##### The class title can be stored as a factor since it is not unique, and is also related to the class ID number.
+##### The class instructor name will be stored as a factor because it is also not a unique field.
+##### The enrollment number will be stored as an integer because it's more useful that way in that you can use the numbers to find sums, averages, etc.
+
+```{r}
+sprclasses  <- spr2019page %>% html_nodes("#maintable")
+
+reg_num <- sprclasses %>%
+                html_nodes("td.reg_num") %>%
+                html_text() %>%
+                as.integer()
+
+class_subj <- sprclasses %>%
+                html_nodes("td.subj") %>%
+                html_text() %>%
+                as.factor()
+
+class_num <- sprclasses %>%
+                html_nodes("td.cat_num") %>%
+                html_text() %>%
+                as.factor()
+
+class_sec <- sprclasses %>%
+                html_nodes("td.sect") %>%
+                html_text() %>%
+                as.integer()
+
+class_title <- sprclasses %>%
+                html_nodes("td.title") %>%
+                html_text() %>%
+                as.factor()
+
+class_instruc <- sprclasses %>%
+                html_nodes("td.Instructor") %>%
+                html_text() %>%
+                as.factor()
+
+class_enroll <- sprclasses %>%
+                html_nodes("td.enrtot") %>%
+                html_text() %>%
+                as.integer()
+
+spr2019 <- tibble(RegistrationNum = reg_num, Subject = class_subj, ClassNumber = class_num, Section = class_sec, ClassTitle = class_title, Instructor = class_instruc, Enrollment = class_enroll)
+
+head(spr2019)
+```
+
+##### To create a function that does all of that work automatically, just requiring the url of the webpage to work with, all we need to do is take everything we just did, and wrap it in curly braces following the declaration of "function" and naming the necessary arguments/input to be used with it (within parentheses).  This will then be stored into a variable called "read_class_schedule" so that when you want to call the function, you just have to type out "read_class_schedule("url")" with the URL being the one of the website you wish to parse.  Of course, this particular function will only be good for pulling data from the webpages for classes for this specific school.
+##### When making a function, it is good to keep in mind that the variable names should be clear as to what they're being used for, but not too wordy.
+
+```{r}
+read_class_schedule <- function(url){
+  
+  classespage <- read_html(url)
+  
+  classlist  <- classespage %>% html_nodes("#maintable")
+  
+  reg_num <- classlist %>%
+                  html_nodes("td.reg_num") %>%
+                  html_text() %>%
+                  as.integer()
+  
+  class_subj <- classlist %>%
+                  html_nodes("td.subj") %>%
+                  html_text() %>%
+                  as.factor()
+  
+  class_num <- classlist %>%
+                  html_nodes("td.cat_num") %>%
+                  html_text() %>%
+                  as.factor()
+  
+  class_sec <- classlist %>%
+                  html_nodes("td.sect") %>%
+                  html_text() %>%
+                  as.integer()
+  
+  class_title <- classlist %>%
+                  html_nodes("td.title") %>%
+                  html_text() %>%
+                  as.factor()
+  
+  class_instruc <- classlist %>%
+                  html_nodes("td.Instructor") %>%
+                  html_text() %>%
+                  as.factor()
+  
+  class_enroll <- classlist %>%
+                  html_nodes("td.enrtot") %>%
+                  html_text() %>%
+                  as.integer()
+  
+  return(tibble(RegistrationNum = reg_num, Subject = class_subj, ClassNumber = class_num,
+                Section = class_sec, ClassTitle = class_title, Instructor = class_instruc,
+                Enrollment = class_enroll))
+}
+```
+
+##### Here, we will test out the function by supplying the URL for the Computer Science classes that are available during the spring semester of 2020.
+##### The "head" function is again being used at the end to display a sample of the extracted data.
+
+```{r}
+spr2020 <- read_class_schedule("http://ems.csuchico.edu/APSS/schedule/spr2020/CSCI.shtml")
+
+head(spr2020)
+```
